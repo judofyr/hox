@@ -30,12 +30,21 @@ proc param*[T](self: ref Router[T], name: string): ref Router[T] =
   self.param_child = result
   self.param_name = name
 
-proc to*[T](self: ref Router[T], meth: string, target: T): ref Router[T] {.discardable.} =
-  result = self
+proc to*[T](self: ref Router[T], meth: string, target: T) =
   self.targets.add((meth, target))
 
-proc get*[T](self: ref Router[T], target: T): ref Router[T] {.discardable.} =
-  self.to("GET", target)
+template deftarget(name: expr, meth: string) =
+  proc `name`*[T](self: ref Router[T], target: T) =
+    self.to(meth, target)
+
+  proc `name =`*[T](self: ref Router[T], target: T) =
+    self.to(meth, target)
+
+deftarget(get, "GET")
+deftarget(post, "POST")
+deftarget(put, "PUT")
+deftarget(delete, "DELETE")
+deftarget(patch, "PATCH")
 
 proc startsWith[T](base: T, prefix: string): bool =
   for i in 0..prefix.len-1:
