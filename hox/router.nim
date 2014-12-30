@@ -2,7 +2,7 @@ import strutils
 import strtabs
 
 type
-  Router[T] = object
+  Router*[T] = object
     children: seq[tuple[path: string, router: ref Router[T]]]
     param_name: string
     param_child: ref Router[T]

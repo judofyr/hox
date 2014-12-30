@@ -20,11 +20,11 @@ type
   BasicResponse* = object of RootObj
     h2o_req*: ptr Req
 
-  App* = object of RootObj
+  BasicApp* = object of RootObj
 
   AppHandler = object
     super: Handler
-    app: ref App
+    app: ref BasicApp
 
   AppGenerator = object
     super: Generator
@@ -47,7 +47,7 @@ proc copyTo*[F,T](self: F, child: var T) =
 
 ## Apps
 
-method call(self: ref App, req: BasicRequest, res: BasicResponse): bool =
+method call(self: ref BasicApp, req: BasicRequest, res: BasicResponse): bool =
   return false
 
 proc `status=`*(res: BasicResponse, code: int) =
@@ -117,7 +117,7 @@ proc root*(server: ref Server, pathname: string): ref Root =
   new(result)
   result.pathconf = h2o_config_register_path(server.hostconf, pathname)
 
-proc mount*(root: ref Root, app: ref App) =
+proc mount*(root: ref Root, app: ref BasicApp) =
   var handler = cast[ptr AppHandler](h2o_create_handler(root.pathconf, sizeof(AppHandler)))
   handler.super.on_req = on_req
   handler.app = app
