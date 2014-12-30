@@ -22,13 +22,42 @@ proc newRouter*[T](): ref Router[T] =
   newSeq(result.targets, 0)
 
 proc path*[T](self: ref Router[T], pathname: string): ref Router[T] =
+  for i, child in self.children:
+    if pathname == child.path:
+      return child.router
+
   result = newRouter[T]()
   self.children.add((pathname, result))
 
 proc param*[T](self: ref Router[T], name: string): ref Router[T] =
+  if not self.param_child.isNil:
+    return self.param_child
+
   result = newRouter[T]()
   self.param_child = result
   self.param_name = name
+
+proc route*[T](self: ref Router[T], pattern: string): ref Router[T] =
+  result = self
+
+  var start = 0
+  while start < pattern.len:
+    let stop = pattern.find("/:", start)
+
+    if stop > start:
+      result = result.path(pattern.substr(start, stop-1))
+      start = stop
+
+    if stop == -1:
+      result = result.path(pattern.substr(start))
+      return
+    else:
+      var param_stop = pattern.find("/", stop+2)
+      if param_stop == -1:
+        param_stop = pattern.len
+
+      result = result.param(pattern.substr(stop+2, param_stop-1))
+      start = param_stop
 
 proc to*[T](self: ref Router[T], meth: string, target: T) =
   self.targets.add((meth, target))
