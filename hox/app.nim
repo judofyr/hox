@@ -4,7 +4,7 @@ import strtabs
 import h2o
 
 type
-  Action = proc(req: Request, res: Response)
+  Action* = proc(req: Request, res: Response)
 
   App* = object of BasicApp
     router*: ref Router[Action]
