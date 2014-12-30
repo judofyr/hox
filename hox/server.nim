@@ -158,10 +158,10 @@ proc run*(server: ref Server) =
   let nameptr = cast[ptr SockAddr](addr(name))
 
   for listener in server.listeners:
-    if getsockname(listener.fd, nameptr, addr(namelen)) == -1:
+    if getsockname(listener.getFd, nameptr, addr(namelen)) == -1:
       raiseOSError(osLastError())
 
-    var sock = h2o_evloop_socket_create(loop, listener.fd, nameptr, namelen, H2O_SOCKET_FLAG_IS_ACCEPT)
+    var sock = h2o_evloop_socket_create(loop, listener.getFd, nameptr, namelen, H2O_SOCKET_FLAG_IS_ACCEPT)
     sock.data = addr(ctx)
     h2o_socket_read_start(sock, on_accept)
 
