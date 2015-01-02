@@ -168,3 +168,11 @@ proc run*(server: ref Server) =
   while true:
     discard h2o_evloop_run(loop)
 
+when declared(system.TThread):
+  proc runThreads*(server: ref Server, numThreads: int) =
+    var thr: seq[TThread[ref Server]]
+    newSeq(thr, numThreads)
+    for i in 0..numThreads-1:
+      createThread(thr[i], run, server)
+    joinThreads(thr)
+

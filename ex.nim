@@ -32,5 +32,5 @@ route("/users/:name").get =
 var s = newServer()
 s.listen(7890)
 s.root("/").mount(liteApp)
-s.run
+s.runThreads(4)
 
