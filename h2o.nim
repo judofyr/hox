@@ -199,6 +199,9 @@ proc substr*(str: IOVec, first: int, last: int): IOVec =
 proc newIOVec*(req: ptr Req, data: string): IOVec =
   return h2o_strdup(addr(req.pool), cstring(data), data.len)
 
+proc newIOVec*(data: string): IOVec =
+  return IOVec(base: cast[ptr cchar](cstring(data)), len: data.len)
+
 type
   TokenList* = enum
     TOKEN_AUTHORITY, TOKEN_METHOD, TOKEN_PATH, TOKEN_SCHEME, TOKEN_STATUS,

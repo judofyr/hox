@@ -29,7 +29,7 @@ type
   AppGenerator = object
     super: Generator
     req: ptr Req
-    in_flight: bool
+    current_data: string
     on_proceed*: proc()
 
 proc newServer*(): ref Server =
@@ -62,7 +62,7 @@ proc add_header*(res: BasicRequest, name: string, value: string) =
 
 proc on_proceed(self: ptr Generator, req: ptr Req) {.cdecl.} =
   var self = cast[ptr AppGenerator](self)
-  self.in_flight = false
+  self.current_data = nil
   if not self.on_proceed.isNil:
     self.on_proceed()
 
@@ -72,7 +72,7 @@ proc finish*(res: BasicResponse, data: string) =
   var gen: Generator
   h2o_start_response(res.h2o_req, addr(gen))
 
-  var data = res.h2o_req.newIOVec(data)
+  var data = newIOVec(data)
   h2o_send(res.h2o_req, addr(data), 1, 1)
 
 proc start_response*(res: BasicResponse): ref AppGenerator =
@@ -86,21 +86,21 @@ proc start_response*(res: BasicResponse, content_length: int): ref AppGenerator 
   return res.start_response()
 
 proc send*(self: ref AppGenerator, data: string) =
-  doAssert(self.in_flight == false)
+  doAssert(self.current_data.isNil)
   doAssert(not self.on_proceed.isNil)
 
-  self.in_flight = true
+  self.current_data = data
 
-  var data = self.req.newIOVec(data)
+  var data = newIOVec(data)
   h2o_send(self.req, addr(data), 1, 0)
 
 proc finish*(self: ref AppGenerator, data: string = nil) =
-  doAssert(self.in_flight == false)
+  doAssert(self.current_data.isNil)
 
   if data.isNil:
     h2o_send(self.req, nil, 0, 0)
   else:
-    var data = self.req.newIOVec(data)
+    var data = newIOVec(data)
     h2o_send(self.req, addr(data), 1, 1)
 
 proc on_req(self: ptr Handler, req: ptr Req): cint {.cdecl.} =
