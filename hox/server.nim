@@ -125,6 +125,30 @@ method call(app: ref BasicApp, tx: BasicTransaction): bool =
 proc req*(tx: BasicTransaction): Request {.inline.} =
   result.h2o_req = tx.h2o_req
 
+proc scheme*(req: Request): IOVec {.inline.} =
+  return req.h2o_req.scheme
+
+proc authority*(req: Request): IOVec {.inline.} =
+  return req.h2o_req.authority
+
+proc meth*(req: Request): IOVec {.inline.} =
+  return req.h2o_req.meth
+
+proc path*(req: Request): IOVec {.inline.} =
+  return req.h2o_req.path_normalized
+
+proc fullpath*(req: Request): IOVec {.inline.} =
+  return req.h2o_req.path
+
+proc querystring*(req: Request): IOVec {.inline.} =
+  let fullpath = req.fullpath
+  for i in 0..fullpath.len-1:
+    if fullpath[i] == '?':
+      return fullpath.substr(i+1)
+
+proc headers*(req: Request): HeaderReader {.inline.} =
+  result.base = addr(req.h2o_req.headers)
+
 proc res*(tx: BasicTransaction): Response {.inline.} =
   result.h2o_req = tx.h2o_req
 
@@ -135,9 +159,6 @@ proc `status=`*(res: Response, code: int) =
 proc headers*(res: Response): HeaderWriter {.inline.} =
   result.base = addr(res.h2o_req.res.headers)
   result.pool = addr(res.h2o_req.pool)
-
-proc headers*(req: Request): HeaderReader {.inline.} =
-  result.base = addr(req.h2o_req.headers)
 
 proc on_proceed(self: ptr Generator, req: ptr Req) {.cdecl.} =
   var self = cast[ptr AppGenerator](self)

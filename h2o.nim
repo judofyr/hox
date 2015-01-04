@@ -190,6 +190,9 @@ proc `==`*(x: IOVec, y: string): bool =
 
   return true
 
+proc `[]`*(str: IOVec, idx: int): char =
+  return str.base[idx]
+
 proc charAt*(str: IOVec, idx: int): char =
   if idx < str.len:
     str.base[idx]
