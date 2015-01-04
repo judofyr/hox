@@ -152,7 +152,7 @@ proc headers*(req: Request): HeaderReader {.inline.} =
 proc res*(tx: BasicTransaction): Response {.inline.} =
   result.h2o_req = tx.h2o_req
 
-proc `status=`*(res: Response, code: int) =
+proc `status=`*(res: Response, code: int) {.inline.} =
   res.h2o_req.res.status = cint(code)
   res.h2o_req.res.reason = StatusCodes[code]
 
@@ -166,7 +166,7 @@ proc on_proceed(self: ptr Generator, req: ptr Req) {.cdecl.} =
   if not self.on_proceed.isNil:
     self.on_proceed()
 
-proc finish*(res: Response, data: string) =
+proc finish*(res: Response, data: string) {.inline.} =
   res.h2o_req.res.content_length = data.len
 
   var gen: Generator
