@@ -4,6 +4,8 @@ import posix/posix
 import os
 import tables
 
+import hox/headers
+
 export h2o.TokenList, h2o.`==`, h2o.`$`
 
 const StatusCodeData = {
@@ -85,10 +87,13 @@ type
   Root* = object
     pathconf: ptr Pathconf
 
-  BasicRequest* = object of RootObj
+  BasicTransaction* = object of RootObj
     h2o_req*: ptr Req
 
-  BasicResponse* = object of RootObj
+  Request* = object
+    h2o_req*: ptr Req
+
+  Response* = object
     h2o_req*: ptr Req
 
   BasicApp* = object of RootObj
@@ -112,24 +117,27 @@ proc newServer*(): ref Server =
 
   result.hostconf = h2o_config_register_host(addr(result.config), "default")
 
-proc copyTo*[F,T](self: F, child: var T) =
-  let p = cast[ptr F](addr(child))
-  p[] = self
-
 ## Apps
 
-method call(self: ref BasicApp, req: BasicRequest, res: BasicResponse): bool =
+method call(app: ref BasicApp, tx: BasicTransaction): bool =
   return false
 
-proc `status=`*(res: BasicResponse, code: int) =
+proc req*(tx: BasicTransaction): Request {.inline.} =
+  result.h2o_req = tx.h2o_req
+
+proc res*(tx: BasicTransaction): Response {.inline.} =
+  result.h2o_req = tx.h2o_req
+
+proc `status=`*(res: Response, code: int) =
   res.h2o_req.res.status = cint(code)
   res.h2o_req.res.reason = StatusCodes[code]
 
-proc add_header*(res: BasicResponse, name: TokenList, value: string) =
-  h2o_add_header(addr(res.h2o_req.pool), addr(res.h2o_req.res.headers), tokenPtr(name), value, value.len)
+proc headers*(res: Response): HeaderWriter {.inline.} =
+  result.base = addr(res.h2o_req.res.headers)
+  result.pool = addr(res.h2o_req.pool)
 
-proc add_header*(res: BasicRequest, name: string, value: string) =
-  h2o_add_header_by_str(addr(res.h2o_req.pool), addr(res.h2o_req.res.headers), name, name.len, 0, value, value.len)
+proc headers*(req: Request): HeaderReader {.inline.} =
+  result.base = addr(req.h2o_req.headers)
 
 proc on_proceed(self: ptr Generator, req: ptr Req) {.cdecl.} =
   var self = cast[ptr AppGenerator](self)
@@ -137,7 +145,7 @@ proc on_proceed(self: ptr Generator, req: ptr Req) {.cdecl.} =
   if not self.on_proceed.isNil:
     self.on_proceed()
 
-proc finish*(res: BasicResponse, data: string) =
+proc finish*(res: Response, data: string) =
   res.h2o_req.res.content_length = data.len
 
   var gen: Generator
@@ -146,13 +154,13 @@ proc finish*(res: BasicResponse, data: string) =
   var data = newIOVec(data)
   h2o_send(res.h2o_req, addr(data), 1, 1)
 
-proc start_response*(res: BasicResponse): ref AppGenerator =
+proc start_response*(res: Response): ref AppGenerator =
   new(result)
   result.super.proceed = on_proceed
   result.req = res.h2o_req
   h2o_start_response(res.h2o_req, addr(result.super))
 
-proc start_response*(res: BasicResponse, content_length: int): ref AppGenerator =
+proc start_response*(res: Response, content_length: int): ref AppGenerator =
   res.h2o_req.res.content_length = content_length
   return res.start_response()
 
@@ -177,9 +185,8 @@ proc finish*(self: ref AppGenerator, data: string = nil) =
 proc on_req(self: ptr Handler, req: ptr Req): cint {.cdecl.} =
   let
     apphandler = cast[ptr AppHandler](self)
-    res = BasicResponse(h2o_req: req)
-    req = BasicRequest(h2o_req: req)
-  if apphandler.app.call(req, res):
+    tx = BasicTransaction(h2o_req: req)
+  if apphandler.app.call(tx):
     return 0
   else:
     return -1

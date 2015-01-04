@@ -5,7 +5,7 @@ import posix/posix
 import net
 
 type
-  Vector[T] = object
+  Vector*[T] = object
     entries: ptr T
     size: csize
     capacity: csize
@@ -73,11 +73,11 @@ type
     tv_at: Timeval
     value: pointer
 
-  Header = object
-    name: ptr IOVec
-    value: IOVec
+  Header* = object
+    name*: ptr IOVec
+    value*: IOVec
 
-  Headers = Vector[Header]
+  Headers* = Vector[Header]
 
   Timestamp = object
     at: Timeval
@@ -89,6 +89,8 @@ type
     chunk_offset: csize
     shared_refs: pointer
     directs: pointer
+
+  MemPoolPtr* = ptr MemPool
 
   Res* = object
     status*: cint
@@ -156,6 +158,7 @@ proc h2o_context_init*(ctx: ptr Context, loop: ptr Loop, config: ptr Globalconf)
 
 proc h2o_http1_accept*(ctx: ptr Context, sock: ptr Socket) {.importc.}
 proc h2o_start_response*(req: ptr Req, generator: ptr Generator) {.importc.}
+proc h2o_find_header*(headers: ptr Headers, name: ptr Token, cursor: int): int {.importc.}
 proc h2o_add_header*(pool: ptr MemPool, headers: ptr Headers, name: ptr Token, value: cstring, valuelen: csize) {.importc.}
 proc h2o_add_header_by_str*(pool: ptr MemPool, headers: ptr Headers, name: cstring, namelen: csize, maybe_token: cint, value: cstring, valuelen: csize) {.importc.}
 proc h2o_send*(req: ptr Req, bufs: ptr IOVec, bufcnt: csize, is_final: cint) {.importc.}
@@ -166,6 +169,11 @@ proc `+`[T](base: ptr T, x: int): ptr T=
 
 proc `[]`[T](base: ptr T, x: int): T =
   return (base + x)[]
+
+proc `[]`*[T](vec: Vector[T], x: int): T =
+  return (vec.entries + x)[]
+
+proc len*(vec: Vector): int = vec.size
 
 proc `$`*(str: IOVec): string =
   result = newString(str.len)
