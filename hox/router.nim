@@ -11,7 +11,7 @@ type
   Matcher = generic m
     $m is string
     m.len is int
-    m.charAt(int) is char
+    `[]`(m, int) is char
     m.substr(int) is m
     m.substr(int, int) is m
     `==`(m, string) is bool
@@ -76,8 +76,11 @@ deftarget(delete, "DELETE")
 deftarget(patch, "PATCH")
 
 proc startsWith[T](base: T, prefix: string): bool =
+  if prefix.len > base.len:
+    return false
+
   for i in 0..prefix.len-1:
-    if base.charAt(i) != prefix[i]:
+    if base[i] != prefix[i]:
       return false
   return true
 
@@ -89,27 +92,31 @@ proc match*[T](self: ref Router[T], res: var T, captures: StringTableRef, meth: 
         return true
 
   for child in self.children:
-    let nextChar = path.charAt(child.path.len)
-    if nextChar == '\0' or nextChar == '/':
-      if path.startsWith(child.path):
-        let rest = path.substr(child.path.len)
-        if child.router.match(res, captures, meth, rest):
-          return true
+    if path.len > child.path.len:
+      # Require slashes as separators
+      if path[child.path.len] != '/':
+        continue
+
+    if path.startsWith(child.path):
+      let rest = path.substr(child.path.len)
+      if child.router.match(res, captures, meth, rest):
+        return true
 
   if path.len < 2:
     return
 
   if not self.param_child.isNil:
     var i = 1
-    while true:
-      let thisChar = path.charAt(i)
-      if thisChar == '\0' or thisChar == '/':
-        let 
-          capture = path.substr(1, i-1)
-          rest = path.substr(i)
-        captures[self.param_name] = $capture
-        return self.param_child.match(res, captures, meth, rest)
+    while i < path.len:
+      if path[i] == '/':
+        break
       i += 1
+
+    let
+      capture = path.substr(1, i-1)
+      rest = path.substr(i)
+    captures[self.param_name] = $capture
+    return self.param_child.match(res, captures, meth, rest)
 
 when isMainModule:
   var r = newRouter[int]()

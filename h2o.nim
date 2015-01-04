@@ -191,13 +191,8 @@ proc `==`*(x: IOVec, y: string): bool =
   return true
 
 proc `[]`*(str: IOVec, idx: int): char =
+  # TODO: Bounds checking
   return str.base[idx]
-
-proc charAt*(str: IOVec, idx: int): char =
-  if idx < str.len:
-    str.base[idx]
-  else:
-    '\0'
 
 proc substr*(str: IOVec, first: int): IOVec =
   result.base = str.base + first
