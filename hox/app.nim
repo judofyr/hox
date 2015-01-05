@@ -5,11 +5,13 @@ import h2o
 
 type
   Action* = proc(tx: Transaction)
-  Filter* = proc(tx: var Transaction): bool
+
+  Hook* = tuple
+    before: proc(tx: var Transaction): bool {.gcsafe, closure.}
+    after: proc(tx: var Transaction) {.gcsafe, closure.}
 
   App* = object of BasicApp
-    before_call*: seq[Filter]
-    after_call*: seq[Filter]
+    hooks*: seq[Hook]
     router*: ref Router[Action]
 
   Transaction* = object of BasicTransaction
@@ -20,8 +22,7 @@ type
 proc newApp*(): ref App =
   new(result)
   result.router = newRouter[Action]()
-  newSeq(result.before_call, 0)
-  newSeq(result.after_call, 0)
+  newSeq(result.hooks, 0)
 
 proc data*(tx: Transaction, T: typedesc): ref T =
   return cast[ref T](tx.data)
@@ -37,36 +38,46 @@ proc setData[T](tx: var Transaction, thing: ref T) =
   tx.data = cast[pointer](thing)
 
 proc setupData*[T](app: ref App, init: proc(data: ref T)) =
-  app.before_call.add proc(tx: var Transaction): bool =
+  proc before(tx: var Transaction): bool =
     var data = new(T)
     init(data)
     tx.setData(data)
 
-  app.after_call.add proc(tx: var Transaction): bool =
+  proc after(tx: var Transaction) {.closure.} =
     tx.clearData(T)
+
+  app.hooks.add((before, after))
 
 method call(app: ref App, tx: BasicTransaction): bool =
   let
     captures = newStringTable(modeCaseSensitive)
     h2o_req = tx.h2o_req
 
-  var
-    newTx = Transaction(app: app, h2o_req: h2o_req, captures: captures)
-
-  for filter in app.before_call:
-    if filter(newTx):
-      return true
-
   var action: Action
-
-  if app.router.match(action, captures, h2o_req.meth, h2o_req.path_normalized):
-    action(newTx)
-
-    for filter in app.after_call:
-      if filter(newTx):
-        return true
-
-    return true
-  else:
+  if not app.router.match(action, captures, h2o_req.meth, h2o_req.path_normalized):
     return false
 
+  var newTx = Transaction(app: app, h2o_req: h2o_req, captures: captures)
+  result = true
+
+  # Run hooks
+  var i = 0
+  while i < app.hooks.len:
+    let filter = app.hooks[i].before
+    if not filter.isNil:
+      let didFinish = filter(newTx)
+      if didFinish:
+        break
+    i += 1
+
+  # If we managed to get through all the hooks, run the main action
+  if i == app.hooks.len:
+    action(newTx)
+
+  # Now run the after-hooks in backwards order, skipping the first
+  while i > 0:
+    i -= 1
+    let hook = app.hooks[i].after
+    if not hook.isNil:
+      hook(newTx)
+    
