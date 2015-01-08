@@ -65,8 +65,8 @@ method call(app: ref App, tx: BasicTransaction): bool =
   while i < app.hooks.len:
     let filter = app.hooks[i].before
     if not filter.isNil:
-      let didFinish = filter(newTx)
-      if didFinish:
+      if filter(newTx):
+        # We're done!
         break
     i += 1
 
@@ -80,4 +80,4 @@ method call(app: ref App, tx: BasicTransaction): bool =
     let hook = app.hooks[i].after
     if not hook.isNil:
       hook(newTx)
-    
+
