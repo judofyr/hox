@@ -29,6 +29,7 @@ type
     upgrade_to_http2: int
     idle_timeout: uint64
     max_concurrent_requests_per_connection: csize
+    max_streams_for_priority: csize
     num_config_slots: csize
 
   Hostconf* = object
